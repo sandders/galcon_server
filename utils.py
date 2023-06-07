@@ -1,12 +1,25 @@
 from queue import PriorityQueue
 from threading import Event, Lock, Thread
 
-from utils.events import GameEvent, EventName
+from event_schema import EventSchema
 
+import json
+
+class Config:
+    def __init__(self, filename):
+        self.config_data = self._load_config(filename)
+
+    def _load_config(self, filename):
+        with open(filename, 'r', encoding='utf-8') as file:
+            config_str = file.read()
+            config_data = json.loads(config_str)
+        return config_data
+
+    def __getitem__(self, key):
+        return self.config_data[key]
 
 def __generate_id() -> int:
-    """ генератор id """
-
+    """ ID generator """
     id_ = 1
     while True:
         yield id_
@@ -16,10 +29,10 @@ def __generate_id() -> int:
 ID_GENERATOR = __generate_id()
 
 
-class PriorityQueueEvent(object):
-    """ элемент очереди событий по максимальному приоритету """
+class PriorityEvent(object):
+    """ Event priority queue item """
 
-    def __init__(self, event: GameEvent, priority: int):
+    def __init__(self, event, priority):
         self.event = event
 
         if priority is None:
@@ -28,64 +41,64 @@ class PriorityQueueEvent(object):
             self.priority = priority
 
     def __priority_factory(self) -> int:
-        if self.event.name == EventName.MOVE:
+        if self.event.name == EventSchema.MOVE:
             return 0
         return 1
 
-    def __gt__(self, other: 'PriorityQueueEvent') -> bool:
+    def __gt__(self, other):
         return self.priority < other.priority
 
-    def __lt__(self, other: 'PriorityQueueEvent') -> bool:
+    def __lt__(self, other):
         return self.priority > other.priority
 
 
-class EventPriorityQueue(object):
-    """ очередь событий по максимальному приоритету """
+class EventQueue(object):
+    """ Event priority queue """
 
     def __init__(self):
         self.__queue = PriorityQueue()
         self.__mutex = Lock()
 
-    def insert(self, event: GameEvent, priority: int = None):
+    def insert(self, event, priority=None):
         with self.__mutex:
-            item = PriorityQueueEvent(event, priority)
+            item = PriorityEvent(event, priority)
             self.__queue.put(item)
 
-    def remove(self) -> GameEvent:
+    def remove(self):
         with self.__mutex:
             item = self.__queue.get()
         return item.event if item else None
 
-    def empty(self) -> bool:
+    def empty(self):
         with self.__mutex:
             return self.__queue.empty()
 
 
-class Coords(object):
-    """ координата точки """
+class Coordinate(object):
+    """ Coordinate point """
 
-    def __init__(self, x: float = 0, y: float = 0):
+    def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
 
     def __str__(self):
         return '({}, {})'.format(self.x, self.y)
 
-    def get_dict(self) -> dict:
-        return vars(self)
+    def get_dict(self):
+        return {'x': self.x, 'y': self.y}
 
-    def radius_calculation(self) -> float:
+    def calc_radius(self):
         return (self.x ** 2 + self.y ** 2) ** 0.5
 
-    def get_coord(self) -> tuple:
+    def get_coordinates(self):
         return self.x, self.y
 
-    def calc_distance(self, point: 'Coords') -> float:
+    def calc_distance(self, point):
         return ((self.x - point.x) ** 2 + (self.y - point.y) ** 2) ** 0.5
 
 
-class StoppedThread(Thread):
-    """ обертка (wrapper) для ручной остановки потоков """
+class StoppableThread(Thread):
+    """ Thread wrapper with manual stop """
 
     def __init__(self, target=None, name=None, args=(), **kwargs):
         self._target = target
@@ -94,18 +107,18 @@ class StoppedThread(Thread):
         super().__init__(target=target, name=name, args=args, kwargs=kwargs)
         self.stopper = Event()
 
-    def is_alive(self) -> bool:
+    def is_alive(self):
         return not self.stopper.is_set()
 
     def run(self):
-        while self.is_alive():
+        while not self.stopper.is_set():
             self._target()
 
     def start(self):
         super().start()
-        print('{} started'.format(self.name))
+        print('{} initiated'.format(self.name))
 
     def stop(self):
-        print('{} stopping...'.format(self.name))
+        print('Stopping {}'.format(self.name))
         self.stopper.set()
         print('{} stopped'.format(self.name))

@@ -37,7 +37,7 @@ def display(planets):
     screen = plt.Rectangle((-120 * 16 / 2, -120 * 9 / 2), 120 * 16, 120 * 9, fill=False,
                            color="black")
     plt.gca().add_patch(screen)
-    colors = [colors[i['type'] - 1] for i in planets]
+    colors = [colors[i['size'] - 1] for i in planets]
 
     plt.scatter(X[:, 0], X[:, 1], color=colors)
 
@@ -64,7 +64,7 @@ while True:
             event = json.loads(event.decode("utf-8"))
 
             print(event)
-            if event['name'] == 'mapinit':
+            if event['name'] == 'map_init':
                 display(event['map'])
                 break
         else:

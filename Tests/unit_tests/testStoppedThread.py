@@ -1,11 +1,11 @@
-from utils import StoppedThread
+from utils import StoppableThread
 import unittest
 
 
 class Test_case_StoppedThread(unittest.TestCase):
 
     def setUp(self):
-        self.st = StoppedThread()
+        self.st = StoppableThread()
 
     def test_StThread_is_alive_when_stopped(self):
         self.st.stop()
