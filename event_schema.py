@@ -23,13 +23,15 @@ class ServerEventSchema(EventSchema):
 
 
 class ClientEventSchema(EventSchema):
-    pass
+   pass
 
 
 class GameEvent(ABC):
     def __init__(self, name: str, **kwargs):
+       
         self.name = name
         self.payload = kwargs
+       
 
 
 class ServerEvent(GameEvent):

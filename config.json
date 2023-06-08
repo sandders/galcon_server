@@ -6,8 +6,8 @@
       "select_timeout": 10
     },
     "Screen": {
-      "multiplier": 120,
-      "length_multiplier": 16,
-      "height_multiplier": 8
+      "multiplier": 60,
+      "length_multiplier": 10,
+      "height_multiplier": 10
     }
   }
