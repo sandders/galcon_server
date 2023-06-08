@@ -62,6 +62,7 @@ class TCPHandler:
             client.setblocking(0)
             self.next_player_id += 1
             player = Player(address, self.next_player_id)
+            print(player.addr , "connected")
             self.notify(ServerEventSchema.PLAYER_INIT, {
                 'players': [pl.get_info() for pl in self.players.values()],
                 "id": player.id
@@ -79,10 +80,12 @@ class TCPHandler:
             if data_size:
                 data_size = struct.unpack('i', data_size)[0]
                 event = client_sock.recv(data_size)
+                
 
                 if event:
                     player = self.players[client_sock]
                     event = ClientEvent(player, event)
+                    print(event.name,event.payload)
                     self.handler_queue.insert(event)
                 else:
                     self.remove_client(client_sock)
@@ -122,20 +125,29 @@ class TCPHandler:
             if not self.handler_queue.empty():
                 event = self.handler_queue.remove()
                 player = event.payload['player']
-
+               
                 if event.name == ClientEventSchema.READY:
                     self.on_event_ready(event, player)
                 elif event.name == ClientEventSchema.RENDERED:
                     self.on_event_rendered(player)
                 elif self.game_started:
-                    if event.name == ClientEvent.MOVE:
+                    
+                    if event.name == 'move':
                         self.on_event_move(event, player)
-                    elif event.name == ClientEvent.SELECT:
+                    elif event.name == 'select':
                         self.on_event_select(event, player)
-                    elif event.name == ClientEvent.ADD_HP:
+                    elif event.name == 'add_hp':
                         self.on_event_add_hp(event, player)
-                    elif event.name == ClientEvent.DAMAGE:
+                    elif event.name == 'damage':
                         self.on_event_damage(event, player)
+                    elif event.name == 'end':
+                        self.on_event_end(event,player)
+
+    def on_event_end(self, event: GameEvent, player: Player):
+        print("game ended throug call from ", player.addr)
+        self.stop()
+
+
 
     def on_event_ready(self, event: GameEvent, player: Player):
         player.ready = event.payload['ready']
@@ -143,7 +155,6 @@ class TCPHandler:
             'player': player.id,
             'ready': event.payload['ready'],
         })
-
         all_ready = all(player.ready for player in self.players.values())
 
         if all_ready and len(self.players) > 1:
@@ -154,10 +165,11 @@ class TCPHandler:
             self.notify(ServerEventSchema.MAP_INIT, {
                 'map': game_map,
             })
+        self.game_started = True    
 
     def on_event_rendered(self, player: Player):
         player.rendered = True
-
+        print(self.game_started)
         if all(player.rendered for player in self.players.values()):
             self.notify(ServerEventSchema.GAME_STARTED, {})
             self.game_started = True
@@ -188,16 +200,17 @@ class TCPHandler:
         planet_id = int(event.payload['planet_id'])
         hp_count = int(event.payload['hp_count'])
         planet = Planet.cache[planet_id]
-
         if planet.owner == player.id:
+           
             planet.units_count += hp_count
             self.notify(event.name, event.payload)
+           
 
     def check_game_over(self):
         active_players = []
 
         for player in self.players.values():
-            if len(player.object_ids) > 0:
+            if len(player.objects) > 0:
                 for planet in Planet.cache.values():
                     if planet.owner == player.id:
                         active_players.append(player.id)
@@ -219,8 +232,8 @@ class TCPHandler:
         unit_id = int(event.payload['unit_id'])
         hp_count = int(event.payload.get('hp_count', 1))
         planet = Planet.cache[planet_id]
-
-        if unit_id in player.object_ids:
+        
+        if unit_id in player.objects:
             if planet.owner == player.id:
                 planet.units_count += hp_count
             else:
@@ -229,7 +242,7 @@ class TCPHandler:
                     planet.owner = player.id
                     planet.units_count = abs(planet.units_count)
 
-            player.object_ids.remove(unit_id)
+            player.objects.remove(unit_id)
 
             self.notify(event.name, {
                 'planet_change': {
